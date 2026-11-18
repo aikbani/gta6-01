@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VELA BAY — sun-soaked island-city crime</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1026;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #eef1f5; }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+  #hud .panel { display: none; position: absolute; background: rgba(10, 14, 24, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 10px; padding: 10px 12px;
+    backdrop-filter: blur(3px); box-shadow: 0 4px 18px rgba(0,0,0,0.45); }
+  #hud.playing .panel { display: block; }
+  #hud.playing #dialogue.panel { display: none; }
+  #hud.playing #dialogue.panel[style*="flex"] { display: flex; }
+
+  /* Mission card, top-left */
+  #mission-card { top: 14px; left: 14px; width: 330px; }
+  .mc-title { display: flex; justify-content: space-between; font-weight: 800; letter-spacing: 0.06em; font-size: 14px; color: #ffc93c; }
+  .mc-bar { height: 6px; background: rgba(255,255,255,0.15); border-radius: 3px; margin: 7px 0; overflow: hidden; }
+  #mc-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #ff2e88, #ffc93c); }
+  .mc-obj { display: flex; gap: 8px; font-size: 13px; line-height: 1.35; margin: 3px 0; }
+  .mc-label { flex: 0 0 38px; font-weight: 800; font-size: 10px; color: #00e5ff; padding-top: 2px; }
+  .mc-dist { font-size: 11px; color: #9aa3b5; margin-top: 5px; }
+
+  /* Status cluster, top-right */
+  #status-card { top: 14px; right: 14px; width: 250px; text-align: right; }
+  .st-row { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; margin: 2px 0; }
+  .stars { font-size: 20px; letter-spacing: 2px; color: #ffc93c; text-shadow: 0 0 8px rgba(255,201,60,0.6); }
+  .stars.hot { color: #ff3355; text-shadow: 0 0 10px rgba(255,51,85,0.9); }
+  .money { font-size: 20px; font-weight: 800; color: #7dff9e; }
+  .bar { height: 7px; background: rgba(255,255,255,0.15); border-radius: 4px; margin: 5px 0 2px; overflow: hidden; }
+  .fill { height: 100%; }
+  .fill.health { background: #3ddc74; width: 100%; }
+  .fill.armor { background: #4f9dff; width: 50%; }
+  .fill.damage { background: #ff9e4f; width: 100%; }
+
+  /* Police response list, right side */
+  #police-list { top: 178px; right: 14px; width: 250px; display: none; }
+  #hud.playing #police-list { display: none; }
+  .pl-title { font-size: 11px; font-weight: 800; letter-spacing: 0.12em; color: #ff6b81; margin-bottom: 6px; }
+  .pl-unit { display: flex; justify-content: space-between; font-size: 12px; padding: 3px 0; border-top: 1px solid rgba(255,255,255,0.08); }
+  .pl-name { font-weight: 700; }
+  .pl-state { font-weight: 800; color: #ffc93c; }
+  .pl-state.RAM { color: #ff3355; }
+  .pl-state.SPOTLIGHT { color: #fff; }
+  .pl-dist { color: #9aa3b5; }
+  .pl-none { font-size: 12px; color: #9aa3b5; }
+
+  /* Minimap, bottom-left */
+  #map-wrap { position: absolute; left: 14px; bottom: 14px; width: 220px; height: 220px; display: none; }
+  #hud.playing #map-wrap { display: block; }
+  #minimap { width: 220px; height: 220px; border-radius: 50%; border: 3px solid rgba(232,228,218,0.85);
+    box-shadow: 0 4px 18px rgba(0,0,0,0.5); background: #10151f; }
+  #map-label { position: absolute; left: 0; right: 0; bottom: -2px; text-align: center; font-size: 10px;
+    letter-spacing: 0.2em; font-weight: 800; color: rgba(255,255,255,0.85); text-shadow: 0 1px 3px #000; }
+
+  /* Weapon slots — raised so the dialogue card can sit at the very bottom */
+  #weapons { left: 250px; bottom: 78px; display: flex; gap: 8px; padding: 8px; }
+  .wp { font-size: 12px; padding: 6px 10px; border-radius: 6px; background: rgba(255,255,255,0.07); color: #c8cfdb; }
+  .wp b { color: #ffc93c; margin-right: 4px; }
+  .wp.active { background: #ff2e88; color: #fff; }
+  .wp.active b { color: #fff; }
+  .wp span { color: #7dff9e; font-weight: 700; }
+
+  /* Speedometer, bottom-right */
+  #speedo { right: 14px; bottom: 14px; width: 190px; text-align: right; }
+  #sp-num { font-size: 54px; font-weight: 800; line-height: 0.95; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,0.6); }
+  #sp-unit { font-size: 11px; letter-spacing: 0.25em; color: #9aa3b5; }
+  #sp-car { font-size: 12px; font-weight: 700; color: #ffc93c; margin: 4px 0; }
+  #sp-drift { font-size: 13px; font-weight: 800; color: #00e5ff; min-height: 16px; }
+
+  /* Radio line (right, clear of the car) + dialogue, bottom-centre */
+  #radio-line { left: auto; right: 230px; transform: none; bottom: 130px; font-size: 12px; padding: 6px 12px; }
+  #rd-station { font-weight: 800; color: #00e5ff; margin-right: 10px; }
+  #rd-track { color: #dfe5ee; }
+  #dialogue { left: 50%; transform: translateX(-50%); bottom: 8px; width: 520px; display: none;
+    align-items: center; gap: 10px; padding: 8px 12px; }
+  #dg-portrait { flex: 0 0 36px; width: 36px; height: 36px; border-radius: 50%; background: #ff2e88;
+    display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; color: #fff; }
+  #dg-name { font-weight: 800; font-size: 12px; color: #ffc93c; }
+  #dg-line { font-size: 13px; line-height: 1.35; margin-top: 1px; }
+
+  /* Crosshair, prompt, popups, toast */
+  #crosshair { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    font-size: 26px; font-weight: 300; color: rgba(255,255,255,0.9); text-shadow: 0 0 6px #000; display: none; }
+  #prompt { position: absolute; left: 50%; top: 58%; transform: translateX(-50%); display: none;
+    font-size: 15px; font-weight: 800; letter-spacing: 0.08em; color: #fff;
+    background: rgba(10,14,24,0.75); border: 1px solid #ffc93c; border-radius: 8px; padding: 8px 14px; }
+  #popups { position: absolute; inset: 0; overflow: hidden; }
+  .popup { position: absolute; top: 42%; font-size: 22px; font-weight: 800; color: #7dff9e;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.8); transition: transform 1.3s ease-out, opacity 1.3s ease-out; }
+  .popup.wanted { color: #ff3355; }
+  #toast { position: absolute; left: 50%; top: 96px; transform: translateX(-50%); font-size: 14px; font-weight: 700;
+    background: rgba(10,14,24,0.8); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px;
+    padding: 9px 16px; opacity: 0; transition: opacity 0.4s; white-space: nowrap; }
+
+  /* Menu + pause overlays */
+  #menu, #pause { position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+    background: linear-gradient(160deg, rgba(11,16,38,0.82), rgba(60,16,48,0.66)); pointer-events: auto; }
+  .menu-inner { max-width: 640px; text-align: center; padding: 30px; }
+  .menu-kicker { font-size: 12px; letter-spacing: 0.3em; font-weight: 800; color: #00e5ff; }
+  .menu-inner h1 { font-size: 84px; margin: 8px 0 4px; letter-spacing: 0.08em; line-height: 0.95;
+    background: linear-gradient(90deg, #ffc93c, #ff2e88, #00e5ff); -webkit-background-clip: text; background-clip: text; color: transparent;
+    text-shadow: none; }
+  .menu-sub { font-size: 17px; font-weight: 600; color: #ffe9b0; }
+  .menu-story { font-size: 14px; line-height: 1.55; color: #dfe5ee; margin: 16px auto; max-width: 560px; }
+  .menu-controls { font-size: 12px; color: #9aa3b5; line-height: 1.7; margin: 10px 0 20px; }
+  .menu-inner button { pointer-events: auto; cursor: pointer; font-size: 17px; font-weight: 800; letter-spacing: 0.1em;
+    color: #fff; background: linear-gradient(90deg, #ff2e88, #ff7a18); border: none; border-radius: 10px;
+    padding: 14px 34px; margin: 4px; box-shadow: 0 6px 24px rgba(255,46,136,0.45); }
+  .menu-inner button:hover { filter: brightness(1.15); }
+  .menu-foot { font-size: 11px; letter-spacing: 0.14em; color: #9aa3b5; margin-top: 16px; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
+</head>
+<body>
+<canvas id="game" aria-label="Vela Bay: drive, steal cars and outrun the Vela Bay police across a sun-soaked island city"></canvas>
+<div id="hud"></div>
+<p id="status" role="status" aria-live="polite"></p>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
